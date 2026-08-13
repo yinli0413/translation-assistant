@@ -742,8 +742,23 @@ function isChinese(text) {
 
 async function toggleAutoCall() {
   if (autoCall.active) { stopAutoCall(); return; }
+  // iOS Safari 限制：语音合成必须在用户点击的同步上下文里先激活一次，之后异步朗读才被允许
+  unlockSpeech();
   try { await startAutoCall(); }
   catch(e) { showToast('无法访问麦克风: ' + e.message); }
+}
+
+function unlockSpeech() {
+  // 用一段静音内容激活 iOS 的 speechSynthesis，解除"必须在点击时触发"的限制
+  try {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0;
+      u.rate = 10;
+      window.speechSynthesis.speak(u);
+    }
+  } catch(e) {}
 }
 
 async function startAutoCall() {
@@ -923,6 +938,12 @@ function speakText(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'en-US';
   u.rate = 0.92;
+  // iOS 需要显式指定英文语音，否则可能用中文语音读英文（读不出来或读音怪异）
+  try {
+    const voices = window.speechSynthesis.getVoices();
+    const enVoice = voices.find(v => v.lang && v.lang.startsWith('en'));
+    if (enVoice) u.voice = enVoice;
+  } catch(e) {}
   u.onend = function() { autoCall.ttsSpeaking = false; };
   u.onerror = function() { autoCall.ttsSpeaking = false; };
   window.speechSynthesis.speak(u);
