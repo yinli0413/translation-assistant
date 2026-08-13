@@ -20,13 +20,14 @@ ASR_VERSION = "2019-06-14"
 ASR_ACTION = "SentenceRecognition"
 
 # 语言 → 腾讯云引擎模型类型
-# 16k_zh: 中文普通话；16k_en: 英文；16k_zh_en: 中英混合
+# 16k_zh: 中文普通话；16k_en: 英文
+# 注：一句话识别不支持 16k_zh_en 混合（混合只属于实时语音识别 WebSocket 流式接口）
 LANG_ENGINE = {
     "zh-CN": "16k_zh",
     "zh": "16k_zh",
     "en-US": "16k_en",
     "en": "16k_en",
-    "mix": "16k_zh_en",
+    "mix": "16k_en",  # 自动通话模式先按英文识别，前端根据结果是否含中文再决定翻译方向
 }
 
 

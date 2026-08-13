@@ -794,9 +794,14 @@ async function handleAutoSegment() {
   try {
     const wav = await convertToWav(blob);
     const base64 = await blobToBase64(wav);
-    // 用中英混合识别，自动判断语言
-    const d = await API.post('/api/speech-to-text', { audio: base64, lang: 'mix' });
-    const text = d.text || '';
+    // 先按英文识别（主要场景：听老外）
+    let d = await API.post('/api/speech-to-text', { audio: base64, lang: 'en-US' });
+    let text = d.text || '';
+    // 如果英文引擎识别结果太短（用户可能在说中文），回退用中文引擎
+    if (text.length < 2) {
+      d = await API.post('/api/speech-to-text', { audio: base64, lang: 'zh-CN' });
+      text = d.text || '';
+    }
     if (text) {
       const log = document.getElementById('auto-log');
       if (isChinese(text)) {
