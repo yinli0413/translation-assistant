@@ -31,8 +31,12 @@ LANG_ENGINE = {
 
 
 def _sign(key, msg):
-    """HMAC-SHA256 签名"""
-    return hmac.new(key.encode("utf-8"), msg.encode("utf-8"), hashlib.sha256).digest()
+    """HMAC-SHA256 签名（key/msg 都统一转 bytes）"""
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    if isinstance(msg, str):
+        msg = msg.encode("utf-8")
+    return hmac.new(key, msg, hashlib.sha256).digest()
 
 
 def _get_headers(secret_id, secret_key, payload, service="asr"):
