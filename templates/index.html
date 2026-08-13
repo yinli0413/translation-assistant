@@ -805,32 +805,52 @@ async function handleAutoSegment() {
   try {
     const wav = await convertToWav(blob);
     const base64 = await blobToBase64(wav);
-    // 先按英文识别（主要场景：听老外）
-    let d = await API.post('/api/speech-to-text', { audio: base64, lang: 'en-US' });
-    let text = d.text || '';
-    // 如果英文引擎识别结果太短（用户可能在说中文），回退用中文引擎
-    if (text.length < 2) {
-      d = await API.post('/api/speech-to-text', { audio: base64, lang: 'zh-CN' });
-      text = d.text || '';
+
+    // 并行识别：英文引擎 + 中文引擎，都试，各自 try 不互相影响
+    const results = await Promise.allSettled([
+      API.post('/api/speech-to-text', { audio: base64, lang: 'en-US' }),
+      API.post('/api/speech-to-text', { audio: base64, lang: 'zh-CN' })
+    ]);
+
+    const enText = (results[0].status === 'fulfilled' && results[0].value.text) ? results[0].value.text.trim() : '';
+    const zhText = (results[1].status === 'fulfilled' && results[1].value.text) ? results[1].value.text.trim() : '';
+
+    const log = document.getElementById('auto-log');
+
+    // 判断语言：中文引擎识别出了中文字符 → 是我说中文；否则是对方说英文
+    if (zhText && isChinese(zhText)) {
+      // 我说中文 → 翻译英文并朗读
+      let en = '';
+      try {
+        const r = await API.post('/api/translate', { text: zhText, target: 'en' });
+        en = r.result || '';
+      } catch(e) {}
+      log.insertAdjacentHTML('beforeend',
+        '<div class="chat-row"><div class="bubble ai"><span style="color:#993c1d;font-weight:600;">我说：</span>' + esc(zhText) +
+        (en ? '<div style="margin-top:6px;color:#0c447c;">' + esc(en) + '</div>' : '') + '</div></div>');
+      if (en) speakText(en);
+    } else if (enText && !isChinese(enText)) {
+      // 对方说英文 → 翻译中文
+      let zh = '';
+      try {
+        const r = await API.post('/api/translate', { text: enText, target: 'zh' });
+        zh = r.result || '';
+      } catch(e) {}
+      log.insertAdjacentHTML('beforeend',
+        '<div class="chat-row client"><div class="bubble client">' + esc(enText) + '</div></div>' +
+        (zh ? '<div class="chat-row"><div class="bubble ai"><span style="color:#2563eb;font-weight:600;">对方意思：</span>' + esc(zh) + '</div></div>' : ''));
+    } else if (enText) {
+      // 英文引擎有结果但中文引擎无（可能是英文，也翻译中文显示）
+      let zh = '';
+      try {
+        const r = await API.post('/api/translate', { text: enText, target: 'zh' });
+        zh = r.result || '';
+      } catch(e) {}
+      log.insertAdjacentHTML('beforeend',
+        '<div class="chat-row client"><div class="bubble client">' + esc(enText) + '</div></div>' +
+        (zh ? '<div class="chat-row"><div class="bubble ai"><span style="color:#2563eb;font-weight:600;">对方意思：</span>' + esc(zh) + '</div></div>' : ''));
     }
-    if (text) {
-      const log = document.getElementById('auto-log');
-      if (isChinese(text)) {
-        // 我说中文 → 翻译英文并朗读
-        const en = await API.post('/api/translate', { text, target: 'en' });
-        log.insertAdjacentHTML('beforeend',
-          '<div class="chat-row"><div class="bubble ai"><span style="color:#993c1d;font-weight:600;">我说：</span>' + esc(text) +
-          '<div style="margin-top:6px;color:#0c447c;">' + esc(en.result) + '</div></div></div>');
-        speakText(en.result);
-      } else {
-        // 对方说英文 → 翻译中文
-        const zh = await API.post('/api/translate', { text, target: 'zh' });
-        log.insertAdjacentHTML('beforeend',
-          '<div class="chat-row client"><div class="bubble client">' + esc(text) + '</div></div>' +
-          '<div class="chat-row"><div class="bubble ai"><span style="color:#2563eb;font-weight:600;">对方意思：</span>' + esc(zh.result) + '</div></div>');
-      }
-      log.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
+    log.scrollIntoView({ behavior: 'smooth', block: 'end' });
   } catch(e) {
     showToast('识别出错: ' + e.message);
   }

@@ -123,7 +123,8 @@ def speech_to_text(audio_b64, lang="zh-CN"):
             return False, "识别错误: " + result["Error"].get("Message", "未知错误")
 
         text = result.get("Result", "")
-        return (True, text) if text else (False, "未识别到语音内容")
+        # 识别不到内容也算成功（返回空串），让前端可继续尝试其他引擎
+        return True, (text or "")
 
     except Exception as e:
         return False, "识别请求出错: " + str(e)
