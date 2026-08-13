@@ -76,10 +76,11 @@ def api_polish():
 def api_reply():
     data = request.get_json()
     text = (data.get("text") or "").strip()
+    user_intent = (data.get("user_intent") or "").strip()
     if not text:
         return jsonify({"error": "请输入客户发来的消息"}), 400
     try:
-        result = chat_reply(text)
+        result = chat_reply(text, user_intent=user_intent)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

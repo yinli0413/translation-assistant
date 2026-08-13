@@ -236,6 +236,14 @@
       <div class="card-title">电话中间人模式</div>
       <div class="card-sub">跟外国人打电话时当你的翻译：对方说的翻成中文给你看，你说中文自动翻成英文并读给对方听</div>
 
+      <div class="call-section" style="border-color:#2563eb;background:#f0f6ff;">
+        <div class="call-label"><span class="dir they">自动通话模式</span>全程监听 · 自动识别 · 自动翻译</div>
+        <div class="card-sub" style="margin-bottom:12px;">点一次开始，之后自动听：检测到老外说英文→自动翻中文；你说中文→自动翻英文并朗读。不用再点麦克风。</div>
+        <button id="auto-call-btn" class="btn btn-primary btn-lg" onclick="toggleAutoCall()" style="width:100%;">🎙️ 开始自动通话</button>
+        <div id="auto-status" style="margin-top:10px;font-size:13px;color:#64748b;">状态：未开启</div>
+        <div class="chat-log" id="auto-log" style="margin-top:12px;"></div>
+      </div>
+
       <div class="call-section they">
         <div class="call-label"><span class="dir they">对方在说</span>英文 → 中文</div>
         <div style="display:flex;gap:10px;align-items:flex-start;">
@@ -266,8 +274,9 @@
   <div id="chat" class="panel">
     <div class="card">
       <div class="card-title">对话交流模式</div>
-      <div class="card-sub">把客户发来的话粘贴进来，立刻给你专业英文回复 + 中文解释，直接复制就能回</div>
+      <div class="card-sub">把客户发来的话粘贴进来，再填你想表达的意思，AI 结合你的主观想法生成专业英文回复</div>
       <textarea id="ch-text" placeholder="粘贴客户的消息，例如：Can you give me a better price?"></textarea>
+      <textarea id="ch-intent" placeholder="（可选）你想表达的意思，例如：价格不能再降了，但可以送个赠品" style="min-height:60px;margin-top:10px;"></textarea>
       <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
         <button class="btn btn-primary btn-lg" onclick="doChat()">生成专业回复</button>
         <button class="voice-btn" data-lang="en-US" data-target="ch-text" onclick="toggleVoiceCall(this)" title="语音输入（用 Edge 浏览器）" type="button">&#x1F3A4;</button>
@@ -398,6 +407,7 @@ function speakMyReply() {
 async function doChat() {
   const text = document.getElementById('ch-text').value.trim();
   if (!text) return;
+  const userIntent = document.getElementById('ch-intent').value.trim();
   const btn = document.querySelector('#chat .btn-primary');
   const err = document.getElementById('ch-error');
   const log = document.getElementById('ch-log');
@@ -405,12 +415,13 @@ async function doChat() {
 
   log.insertAdjacentHTML('beforeend',
     '<div class="chat-row client"><div class="bubble client">' + esc(text) + '</div></div>' +
+    (userIntent ? '<div class="chat-row"><div class="bubble ai" style="background:#f0f6ff;border-color:#b5d4f4;">我的意思：' + esc(userIntent) + '</div></div>' : '') +
     '<div class="chat-row"><div class="bubble ai" id="ch-loading"><span class="spinner"></span>正在生成专业回复...</div></div>'
   );
   log.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
   try {
-    const d = await API.post('/api/reply', { text });
+    const d = await API.post('/api/reply', { text, user_intent: userIntent });
     const loading = document.getElementById('ch-loading');
     loading.innerHTML =
       '<span class="intent-badge">' + esc(d.intent || '客户咨询') + '</span>' +
@@ -424,6 +435,7 @@ async function doChat() {
   }
   btn.disabled = false;
   document.getElementById('ch-text').value = '';
+  document.getElementById('ch-intent').value = '';
   log.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
@@ -664,6 +676,158 @@ async function recognizeSpeech(base64) {
     showToast('识别失败: ' + e.message);
   }
   if (voiceBtnEl) voiceBtnEl.classList.remove('listening');
+}
+
+// ==================== 全自动通话模式 ====================
+let autoCall = {
+  active: false,
+  stream: null,
+  audioCtx: null,
+  analyser: null,
+  recorder: null,
+  chunks: [],
+  speaking: false,
+  silenceStart: 0,
+  processing: false,
+  timer: null,
+};
+
+function isChinese(text) {
+  return /[\u4e00-\u9fa5]/.test(text);
+}
+
+async function toggleAutoCall() {
+  if (autoCall.active) { stopAutoCall(); return; }
+  try { await startAutoCall(); }
+  catch(e) { showToast('无法访问麦克风: ' + e.message); }
+}
+
+async function startAutoCall() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const source = audioCtx.createMediaStreamSource(stream);
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 512;
+  source.connect(analyser);
+
+  autoCall.active = true;
+  autoCall.stream = stream;
+  autoCall.audioCtx = audioCtx;
+  autoCall.analyser = analyser;
+  autoCall.speaking = false;
+  autoCall.processing = false;
+
+  const btn = document.getElementById('auto-call-btn');
+  btn.textContent = '⏹ 停止自动通话';
+  btn.style.background = '#dc2626';
+  document.getElementById('auto-status').textContent = '状态：正在监听，请说话...';
+  document.getElementById('auto-status').style.color = '#16a34a';
+
+  autoCall.timer = setInterval(checkVoiceActivity, 100);
+}
+
+function stopAutoCall() {
+  autoCall.active = false;
+  if (autoCall.timer) clearInterval(autoCall.timer);
+  if (autoCall.recorder && autoCall.recorder.state !== 'inactive') { try { autoCall.recorder.stop(); } catch(e) {} }
+  if (autoCall.stream) autoCall.stream.getTracks().forEach(t => t.stop());
+  if (autoCall.audioCtx) { try { autoCall.audioCtx.close(); } catch(e) {} }
+  const btn = document.getElementById('auto-call-btn');
+  btn.textContent = '🎙️ 开始自动通话';
+  btn.style.background = '';
+  document.getElementById('auto-status').textContent = '状态：未开启';
+  document.getElementById('auto-status').style.color = '#64748b';
+}
+
+function checkVoiceActivity() {
+  if (!autoCall.active) return;
+  const data = new Uint8Array(autoCall.analyser.frequencyBinCount);
+  autoCall.analyser.getByteTimeDomainData(data);
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) {
+    const v = (data[i] - 128) / 128;
+    sum += v * v;
+  }
+  const rms = Math.sqrt(sum / data.length);
+
+  if (rms > 0.03) {
+    if (!autoCall.speaking && !autoCall.processing) {
+      autoCall.speaking = true;
+      startAutoRecording();
+    }
+    autoCall.silenceStart = 0;
+  } else {
+    if (autoCall.speaking) {
+      if (autoCall.silenceStart === 0) autoCall.silenceStart = Date.now();
+      if (Date.now() - autoCall.silenceStart > 1200) {
+        autoCall.speaking = false;
+        stopAutoRecording();
+      }
+    }
+  }
+}
+
+function startAutoRecording() {
+  let mimeType = '';
+  const candidates = ['audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+  for (const m of candidates) {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) { mimeType = m; break; }
+  }
+  if (!mimeType) return;
+  autoCall.chunks = [];
+  autoCall.recorder = new MediaRecorder(autoCall.stream, { mimeType });
+  autoCall.recorder.ondataavailable = e => { if (e.data.size > 0) autoCall.chunks.push(e.data); };
+  autoCall.recorder.onstop = handleAutoSegment;
+  autoCall.recorder.start();
+}
+
+function stopAutoRecording() {
+  if (autoCall.recorder && autoCall.recorder.state !== 'inactive') {
+    autoCall.recorder.stop();
+  }
+}
+
+async function handleAutoSegment() {
+  if (autoCall.chunks.length === 0) return;
+  autoCall.processing = true;
+  const blob = new Blob(autoCall.chunks, { type: autoCall.recorder.mimeType || 'audio/webm' });
+  try {
+    const wav = await convertToWav(blob);
+    const base64 = await blobToBase64(wav);
+    // 用中英混合识别，自动判断语言
+    const d = await API.post('/api/speech-to-text', { audio: base64, lang: 'mix' });
+    const text = d.text || '';
+    if (text) {
+      const log = document.getElementById('auto-log');
+      if (isChinese(text)) {
+        // 我说中文 → 翻译英文并朗读
+        const en = await API.post('/api/translate', { text, target: 'en' });
+        log.insertAdjacentHTML('beforeend',
+          '<div class="chat-row"><div class="bubble ai"><span style="color:#993c1d;font-weight:600;">我说：</span>' + esc(text) +
+          '<div style="margin-top:6px;color:#0c447c;">' + esc(en.result) + '</div></div></div>');
+        speakText(en.result);
+      } else {
+        // 对方说英文 → 翻译中文
+        const zh = await API.post('/api/translate', { text, target: 'zh' });
+        log.insertAdjacentHTML('beforeend',
+          '<div class="chat-row client"><div class="bubble client">' + esc(text) + '</div></div>' +
+          '<div class="chat-row"><div class="bubble ai"><span style="color:#2563eb;font-weight:600;">对方意思：</span>' + esc(zh.result) + '</div></div>');
+      }
+      log.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  } catch(e) {
+    showToast('识别出错: ' + e.message);
+  }
+  autoCall.processing = false;
+}
+
+function speakText(text) {
+  if (!('speechSynthesis' in window) || !text) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US';
+  u.rate = 0.92;
+  window.speechSynthesis.speak(u);
 }
 
 document.getElementById('ch-text').addEventListener('keydown', e => {

@@ -130,6 +130,20 @@ PHRASES = {
             ("33", "询问新需求", "We hope everything is going well. Do you have any new purchasing plans for the coming quarter?"),
         ],
     },
+    "10": {
+        "category": "🎒 书包产品介绍",
+        "items": [
+            ("34", "颜色丰富", "Our school bags come in a wide range of vibrant colors such as pink, blue, purple and green, which kids really love."),
+            ("35", "款式多样", "We offer many styles and designs to choose from, suitable for boys and girls of different ages."),
+            ("36", "材质优质", "Our backpacks are made of high-quality Oxford fabric and durable polyester, which are lightweight yet long-lasting."),
+            ("37", "护脊设计", "The backpack features an ergonomic padded back panel and adjustable shoulder straps to protect children's spines."),
+            ("38", "大容量多隔层", "The bag has multiple compartments including a main compartment, front pocket and side bottle pockets, offering plenty of space for books and a lunch box."),
+            ("39", "无毒环保", "All materials are non-toxic, eco-friendly and BPA-free, fully compliant with EN71 and REACH standards."),
+            ("40", "支持定制", "We support OEM and ODM. Custom colors, designs and logo printing are all available."),
+            ("41", "品牌特色", "Inspired by Smiggle's fun and creative style, our products feature bright colors and playful designs that stand out."),
+            ("42", "质量保证", "Each bag goes through strict quality control and is backed by a reliable after-sales guarantee."),
+        ],
+    },
 }
 
 def flatten_phrases():
@@ -284,7 +298,7 @@ def _classify_intent(text):
     return "通用咨询", ["1"]
 
 
-def chat_reply(text):
+def chat_reply(text, user_intent=""):
     """
     对话交流模式：输入客户发来的话，返回结构化回复
     返回 dict：{intent, meaning, reply, alt_reply}
@@ -292,6 +306,7 @@ def chat_reply(text):
     - meaning: 客户这句话的中文意思
     - reply: 专业英文回复（可直接发给客户）
     - alt_reply: 备选英文回复
+    - user_intent: 用户想表达的主观意思（中文），AI 会把它融入专业话术
     """
     text = text.strip()
     if not text:
@@ -300,14 +315,14 @@ def chat_reply(text):
     api_key = DEEPSEEK_API_KEY or OPENAI_API_KEY
     if api_key:
         try:
-            return _llm_chat_reply(text, api_key)
+            return _llm_chat_reply(text, api_key, user_intent)
         except Exception:
             pass  # LLM 失败则走兜底
 
-    return _fallback_chat_reply(text)
+    return _fallback_chat_reply(text, user_intent)
 
 
-def _llm_chat_reply(text, api_key):
+def _llm_chat_reply(text, api_key, user_intent=""):
     """用 LLM 生成对话回复，返回 dict"""
     system_prompt = (
         "你是一名资深外贸业务员，精通国际贸易谈判，熟悉书包/箱包行业。"
@@ -315,6 +330,13 @@ def _llm_chat_reply(text, api_key):
         "客户发来一句话，你需要："
         "1) 判断客户意图；2) 用中文简要说明客户的意思；"
         "3) 给出1条专业、礼貌、地道的英文回复；4) 再给出1条备选英文回复。"
+    )
+    if user_intent:
+        system_prompt += (
+            f"另外，用户想表达的主观意思是：「{user_intent}」。"
+            "请把用户的这个意思，用专业的外贸话术融入到你给出的英文回复中（主回复 reply 要体现用户的意思）。"
+        )
+    system_prompt += (
         "严格输出 JSON，格式："
         '{"intent":"客户意图(中文)","meaning":"客户意思(中文)",'
         '"reply":"专业英文回复","alt_reply":"备选英文回复"}'
@@ -343,7 +365,7 @@ def _llm_chat_reply(text, api_key):
     }
 
 
-def _fallback_chat_reply(text):
+def _fallback_chat_reply(text, user_intent=""):
     """无 LLM 时：意图分类 + 快捷短语兜底 + 翻译客户原话"""
     intent, phrase_ids = _classify_intent(text)
     flat = flatten_phrases()
@@ -351,6 +373,12 @@ def _fallback_chat_reply(text):
     # 取第一条匹配短语作为主回复，第二条作为备选
     cn_main, en_main = flat.get(phrase_ids[0], ("", ""))
     cn_alt, en_alt = flat.get(phrase_ids[1], ("", "")) if len(phrase_ids) > 1 else ("", "")
+
+    # 如果用户给了主观意思，把它翻译成英文并附加到主回复
+    if user_intent:
+        intent_en = google_translate(user_intent, target="en")
+        if intent_en and not intent_en.startswith("["):
+            en_main = (en_main + " " + intent_en).strip()
 
     # 客户原话的中文意思（用 Google 翻译）
     meaning = google_translate(text, target="zh")
