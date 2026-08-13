@@ -4,8 +4,8 @@
   "description": "书包外贸翻译助手 · 对话话术 · 翻译 · 润色 · 电话中间人",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f4f6fb",
-  "theme_color": "#2563eb",
+  "background_color": "#080c17",
+  "theme_color": "#0d1322",
   "icons": [
     {
       "src": "/icon.svg",
