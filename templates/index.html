@@ -731,6 +731,9 @@ let autoCall = {
   silenceStart: 0,
   processing: false,
   timer: null,
+  ttsSpeaking: false,
+  baseline: 0.02,   // 动态噪声基线
+  segStart: 0,       // 当前录音段的开始时间
 };
 
 function isChinese(text) {
@@ -744,8 +747,9 @@ async function toggleAutoCall() {
 }
 
 async function startAutoCall() {
+  // 注意：不用 autoGainControl，自动增益会把静音也放大，导致检测不到停顿
   const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    audio: { echoCancellation: true, noiseSuppression: true }
   });
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const source = audioCtx.createMediaStreamSource(stream);
@@ -760,6 +764,8 @@ async function startAutoCall() {
   autoCall.speaking = false;
   autoCall.processing = false;
   autoCall.ttsSpeaking = false;
+  autoCall.baseline = 0.02;
+  autoCall.segStart = 0;
 
   const btn = document.getElementById('auto-call-btn');
   btn.textContent = '⏹ 停止自动通话';
@@ -770,7 +776,7 @@ async function startAutoCall() {
   document.getElementById('manual-they').style.display = 'none';
   document.getElementById('manual-me').style.display = 'none';
 
-  autoCall.timer = setInterval(checkVoiceActivity, 100);
+  autoCall.timer = setInterval(checkVoiceActivity, 80);
 }
 
 function stopAutoCall() {
@@ -802,16 +808,27 @@ function checkVoiceActivity() {
   }
   const rms = Math.sqrt(sum / data.length);
 
-  if (rms > 0.03) {
+  // 说话阈值 = 动态基线 * 3，且不低于 0.02
+  const threshold = Math.max(autoCall.baseline * 3, 0.02);
+
+  if (rms > threshold) {
     if (!autoCall.speaking && !autoCall.processing) {
       autoCall.speaking = true;
+      autoCall.segStart = Date.now();
       startAutoRecording();
     }
     autoCall.silenceStart = 0;
   } else {
+    // 静音时，缓慢更新噪声基线（让基线适应环境）
+    if (!autoCall.speaking) {
+      autoCall.baseline = autoCall.baseline * 0.95 + rms * 0.05;
+    }
     if (autoCall.speaking) {
       if (autoCall.silenceStart === 0) autoCall.silenceStart = Date.now();
-      if (Date.now() - autoCall.silenceStart > 1200) {
+      // 静音超过 900ms 或单段超过 12 秒，就切分
+      const silentLong = (Date.now() - autoCall.silenceStart > 900);
+      const tooLong = (Date.now() - autoCall.segStart > 12000);
+      if (silentLong || tooLong) {
         autoCall.speaking = false;
         stopAutoRecording();
       }
