@@ -840,8 +840,8 @@ function checkVoiceActivity() {
     }
     if (autoCall.speaking) {
       if (autoCall.silenceStart === 0) autoCall.silenceStart = Date.now();
-      // 静音超过 900ms 或单段超过 12 秒，就切分
-      const silentLong = (Date.now() - autoCall.silenceStart > 900);
+      // 静音超过 550ms 或单段超过 12 秒，就切分（550ms 兼顾中文停顿，响应更快）
+      const silentLong = (Date.now() - autoCall.silenceStart > 550);
       const tooLong = (Date.now() - autoCall.segStart > 12000);
       if (silentLong || tooLong) {
         autoCall.speaking = false;

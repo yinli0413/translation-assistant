@@ -177,12 +177,19 @@ def print_menu(target):
     print("-" * 50)
 
 
+# 翻译器缓存：避免每次翻译都重新初始化（重新初始化要重新建连接获取 token，极慢）
+_translator_cache = {}
+
+
 def google_translate(text, target="en"):
-    """使用 Google 翻译"""
+    """使用 Google 翻译（带缓存，提升速度）"""
     # Google 翻译对中文的特殊代码
     google_target = "zh-CN" if target == "zh" else target
     try:
-        translator = GoogleTranslator(source="auto", target=google_target)
+        translator = _translator_cache.get(google_target)
+        if translator is None:
+            translator = GoogleTranslator(source="auto", target=google_target)
+            _translator_cache[google_target] = translator
         return translator.translate(text)
     except Exception as e:
         return f"[翻译出错] {e}"
