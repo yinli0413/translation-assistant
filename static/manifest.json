@@ -1,0 +1,17 @@
+{
+  "name": "外贸翻译助手",
+  "short_name": "翻译助手",
+  "description": "书包外贸翻译助手 · 对话话术 · 翻译 · 润色 · 电话中间人",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f6fb",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>外贸翻译助手 · 书包外贸</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#2563eb">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
+<style>
+  :root {
+    --blue: #2563eb;
+    --blue-dark: #1d4ed8;
+    --blue-bg: #eff6ff;
+    --ink: #0f172a;
+    --sub: #64748b;
+    --line: #e2e8f0;
+    --bg: #f4f6fb;
+    --green: #16a34a;
+    --red: #dc2626;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: "PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+    background: var(--bg); color: var(--ink); line-height: 1.65;
+    min-height: 100vh;
+  }
+  .app { max-width: 860px; margin: 0 auto; padding: 20px 16px 48px; }
+
+  header {
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    border-radius: 18px; padding: 24px 28px; margin-bottom: 18px;
+    color: #fff; display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 8px 24px rgba(37,99,235,.25);
+  }
+  .logo {
+    width: 52px; height: 52px; border-radius: 14px; background: rgba(255,255,255,.18);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; font-weight: 700; flex-shrink: 0;
+  }
+  header h1 { font-size: 20px; font-weight: 600; }
+  header p { font-size: 13px; opacity: .85; margin-top: 3px; }
+
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 18px;
+    background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 5px;
+    box-shadow: 0 2px 8px rgba(15,23,42,.04);
+    position: sticky; top: 8px; z-index: 20;
+  }
+  .tab {
+    flex: 1; padding: 11px 6px; text-align: center;
+    font-size: 14px; font-weight: 500; color: var(--sub);
+    border-radius: 10px; cursor: pointer; border: none; background: none;
+    transition: all .18s; white-space: nowrap;
+  }
+  .tab:hover { background: #f1f5f9; }
+  .tab.active { background: var(--blue); color: #fff; }
+
+  .panel { display: none; }
+  .panel.active { display: block; animation: fade .25s ease; }
+  @keyframes fade { from { opacity:0; transform: translateY(6px);} to { opacity:1; transform:none;} }
+
+  .card {
+    background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 22px;
+    box-shadow: 0 2px 10px rgba(15,23,42,.05);
+  }
+  .card-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; color: var(--ink); }
+  .card-sub { font-size: 13px; color: var(--sub); margin-bottom: 16px; }
+
+  textarea {
+    width: 100%; min-height: 80px; resize: vertical;
+    border: 1.5px solid var(--line); border-radius: 12px; padding: 13px 15px;
+    font-size: 14px; font-family: inherit; color: var(--ink);
+    background: #f8fafc; outline: none; transition: border .18s, background .18s;
+  }
+  textarea:focus { border-color: var(--blue); background: #fff; }
+  select {
+    padding: 11px 14px; border: 1.5px solid var(--line); border-radius: 12px;
+    font-size: 14px; background: #fff; color: var(--ink); cursor: pointer; min-width: 120px;
+  }
+  .btn {
+    padding: 11px 26px; border-radius: 12px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: all .18s; white-space: nowrap;
+  }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: var(--blue-dark); }
+  .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+  .btn-outline { background: #fff; color: var(--blue); border: 1.5px solid var(--blue); }
+  .btn-outline:hover { background: var(--blue-bg); }
+  .btn-lg { padding: 13px 32px; font-size: 15px; }
+
+  .voice-btn {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1.5px solid var(--line); background: #fff;
+    cursor: pointer; color: var(--sub); font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .2s; flex-shrink: 0; padding: 0;
+  }
+  .voice-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+  .voice-btn.listening {
+    background: #fef2f2; border-color: var(--red); color: var(--red);
+    animation: micPulse 1.3s ease-in-out infinite;
+  }
+  @keyframes micPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,.35); }
+    50% { box-shadow: 0 0 0 10px rgba(220,38,38,0); }
+  }
+
+  .result-box {
+    margin-top: 14px; padding: 15px 17px; background: #f8fafc;
+    border: 1px solid var(--line); border-radius: 12px; min-height: 50px;
+    font-size: 14px; color: #334155; white-space: pre-wrap; position: relative;
+  }
+  .copy-btn {
+    position: absolute; top: 10px; right: 10px;
+    padding: 5px 14px; font-size: 12px; border-radius: 7px;
+    background: #fff; border: 1px solid var(--line); color: var(--sub); cursor: pointer;
+  }
+  .copy-btn:hover { background: #f1f5f9; }
+  .copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+  .search-box {
+    width: 100%; padding: 11px 15px; border: 1.5px solid var(--line);
+    border-radius: 12px; font-size: 14px; margin-bottom: 16px;
+    outline: none; background: #f8fafc;
+  }
+  .search-box:focus { border-color: var(--blue); background: #fff; }
+
+  .phrase-cat { margin-bottom: 16px; }
+  .phrase-cat h3 {
+    font-size: 14px; font-weight: 600; color: var(--ink);
+    padding: 8px 2px; border-bottom: 1px solid var(--line); margin-bottom: 8px;
+  }
+  .phrase-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 11px 13px; border-radius: 10px; cursor: pointer;
+    border: 1px solid transparent; transition: all .13s; gap: 12px;
+  }
+  .phrase-item:hover { background: #f1f5f9; border-color: var(--line); }
+  .phrase-item .cn { font-size: 14px; font-weight: 500; color: var(--ink); flex-shrink: 0; }
+  .phrase-item .en {
+    font-size: 13px; color: var(--sub); text-align: right;
+    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .phrase-item.copied { background: #f0fdf4; border-color: #bbf7d0; }
+
+  .spinner {
+    display: inline-block; width: 16px; height: 16px; border: 2px solid #e2e8f0;
+    border-top-color: var(--blue); border-radius: 50%; animation: spin .6s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .toast {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+    background: #0f172a; color: #fff; padding: 11px 26px; border-radius: 12px;
+    font-size: 14px; z-index: 1000; opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .error { color: var(--red); font-size: 13px; margin-top: 8px; }
+
+  .chat-log { display: flex; flex-direction: column; gap: 16px; margin-top: 8px; }
+  .chat-row { display: flex; flex-direction: column; }
+  .chat-row.client { align-items: flex-end; }
+  .bubble {
+    max-width: 82%; padding: 12px 16px; border-radius: 14px; font-size: 14px;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .bubble.client { background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+  .bubble.ai { background: #fff; border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .ai-block { margin-top: 10px; }
+  .ai-block:first-child { margin-top: 0; }
+  .ai-label {
+    font-size: 12px; font-weight: 600; color: var(--blue); margin-bottom: 4px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .ai-label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+  .intent-badge {
+    display: inline-block; background: var(--blue-bg); color: var(--blue);
+    border-radius: 20px; padding: 3px 12px; font-size: 12px; font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .reply-en { position: relative; padding-right: 70px; }
+  .reply-en .copy-btn { top: 50%; transform: translateY(-50%); }
+
+  .call-section {
+    border: 1.5px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px;
+  }
+  .call-section.they { border-color: #b5d4f4; background: #f8fbff; }
+  .call-section.me { border-color: #f5c4b3; background: #fffaf7; }
+  .call-label {
+    font-size: 14px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .call-label .dir {
+    font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 20px;
+  }
+  .dir.they { background: var(--blue-bg); color: var(--blue); }
+  .dir.me { background: #faefe7; color: #993c1d; }
+  .call-result {
+    margin-top: 12px; padding: 14px 16px; border-radius: 12px; font-size: 15px;
+    background: #fff; border: 1px solid var(--line); min-height: 46px; white-space: pre-wrap;
+  }
+  .call-result.zh { color: var(--ink); font-size: 16px; }
+  .call-result.en { color: #0c447c; }
+
+  @media (max-width: 600px) {
+    .input-row { flex-direction: column; }
+    .input-row select, .input-row .btn, .input-row .voice-btn { width: 100%; }
+    .voice-btn { align-self: flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo">译</div>
+    <div>
+      <h1>书包外贸翻译助手</h1>
+      <p>电话中间人 · 对话话术 · 翻译 · 润色 · 快捷短语</p>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('call')">电话中间人</button>
+    <button class="tab" onclick="switchTab('chat')">对话交流</button>
+    <button class="tab" onclick="switchTab('translate')">翻译</button>
+    <button class="tab" onclick="switchTab('polish')">润色</button>
+    <button class="tab" onclick="switchTab('phrases')">短语</button>
+  </div>
+
+  <div id="call" class="panel active">
+    <div class="card">
+      <div class="card-title">电话中间人模式</div>
+      <div class="card-sub">跟外国人打电话时当你的翻译：对方说的翻成中文给你看，你说中文自动翻成英文并读给对方听</div>
+
+      <div class="call-section they">
+        <div class="call-label"><span class="dir they">对方在说</span>英文 → 中文</div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <textarea id="call-en" placeholder="对方说的英文（点麦克风识别，或手动输入）"></textarea>
+          <button class="voice-btn" data-lang="en-US" data-target="call-en" data-auto="enToZh" onclick="toggleVoiceCall(this)" title="听对方说英文（录音识别）" type="button">&#x1F3A4;</button>
+        </div>
+        <div style="margin-top:10px;">
+          <button class="btn btn-primary" onclick="enToZh()">翻译成中文</button>
+        </div>
+        <div class="call-result zh" id="call-zh"><span style="color:#94a3b8;">对方的意思会显示在这里</span></div>
+      </div>
+
+      <div class="call-section me">
+        <div class="call-label"><span class="dir me">我要回复</span>中文 → 英文</div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <textarea id="call-my" placeholder="你要回复的内容（点麦克风说中文，或手动输入）"></textarea>
+          <button class="voice-btn" data-lang="zh-CN" data-target="call-my" data-auto="zhToEn" onclick="toggleVoiceCall(this)" title="说中文（录音识别）" type="button">&#x1F3A4;</button>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="zhToEn()">翻译成英文</button>
+          <button class="btn btn-outline" id="call-speak" onclick="speakMyReply()">朗读给对方听</button>
+        </div>
+        <div class="call-result en" id="call-en-result"><span style="color:#94a3b8;">翻译后的英文会显示在这里</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="chat" class="panel">
+    <div class="card">
+      <div class="card-title">对话交流模式</div>
+      <div class="card-sub">把客户发来的话粘贴进来，立刻给你专业英文回复 + 中文解释，直接复制就能回</div>
+      <textarea id="ch-text" placeholder="粘贴客户的消息，例如：Can you give me a better price?"></textarea>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-lg" onclick="doChat()">生成专业回复</button>
+        <button class="voice-btn" data-lang="en-US" data-target="ch-text" onclick="toggleVoiceCall(this)" title="语音输入（用 Edge 浏览器）" type="button">&#x1F3A4;</button>
+      </div>
+      <div class="error" id="ch-error"></div>
+      <div class="chat-log" id="ch-log"></div>
+    </div>
+  </div>
+
+  <div id="translate" class="panel">
+    <div class="card">
+      <div class="card-title">普通翻译</div>
+      <div class="card-sub">输入文字，自动翻译成目标语言</div>
+      <textarea id="tr-text" placeholder="输入要翻译的文字..."></textarea>
+      <div style="display:flex;align-items:flex-end;gap:10px;margin-top:12px;flex-wrap:wrap;">
+        <button class="voice-btn" data-lang="zh-CN" data-target="tr-text" onclick="toggleVoiceCall(this)" title="语音输入（用 Edge 浏览器）" type="button">&#x1F3A4;</button>
+        <select id="tr-target">
+          <option value="en">英文</option>
+          <option value="zh">中文</option>
+          <option value="ja">日语</option>
+          <option value="ko">韩语</option>
+          <option value="fr">法语</option>
+          <option value="de">德语</option>
+          <option value="es">西班牙语</option>
+          <option value="ru">俄语</option>
+          <option value="pt">葡萄牙语</option>
+        </select>
+        <button class="btn btn-primary" onclick="doTranslate()">翻译</button>
+      </div>
+      <div class="result-box" id="tr-result">
+        <span style="color:#94a3b8;">翻译结果将在这里显示</span>
+        <button class="copy-btn" id="tr-copy" onclick="copyText('tr-result', this)" style="display:none;">复制</button>
+      </div>
+      <div class="error" id="tr-error"></div>
+    </div>
+  </div>
+
+  <div id="polish" class="panel">
+    <div class="card">
+      <div class="card-title">外贸润色</div>
+      <div class="card-sub">把中文或中式英语改成地道商务英语</div>
+      <textarea id="po-text" placeholder="输入要润色的中文或英文..."></textarea>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="doPolish()">润色</button>
+        <button class="voice-btn" data-lang="zh-CN" data-target="po-text" onclick="toggleVoiceCall(this)" title="语音输入（用 Edge 浏览器）" type="button">&#x1F3A4;</button>
+      </div>
+      <div class="result-box" id="po-result">
+        <span style="color:#94a3b8;">润色后结果将在这里显示</span>
+        <button class="copy-btn" id="po-copy" onclick="copyText('po-result', this)" style="display:none;">复制</button>
+      </div>
+      <div class="error" id="po-error"></div>
+    </div>
+  </div>
+
+  <div id="phrases" class="panel">
+    <div class="card">
+      <div class="card-title">快捷短语</div>
+      <div class="card-sub">点击任意短语，英文自动复制到剪贴板</div>
+      <input class="search-box" id="ph-search" type="text" placeholder="搜索短语..." oninput="filterPhrases()">
+      <div id="ph-list"></div>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+let allPhrases = [];
+
+const API = {
+  async post(url, body) {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || '请求失败');
+    return data;
+  }
+};
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="${name}"]`).classList.add('active');
+  document.getElementById(name).classList.add('active');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function enToZh() {
+  const text = document.getElementById('call-en').value.trim();
+  if (!text) { showToast('请先输入或说出对方说的英文'); return; }
+  const box = document.getElementById('call-zh');
+  box.innerHTML = '<span class="spinner"></span>正在翻译...';
+  try {
+    const d = await API.post('/api/translate', { text, target: 'zh' });
+    box.textContent = d.result;
+  } catch(e) { box.textContent = e.message; }
+}
+
+async function zhToEn() {
+  const text = document.getElementById('call-my').value.trim();
+  if (!text) { showToast('请先输入或说出你要回复的话'); return; }
+  const box = document.getElementById('call-en-result');
+  box.innerHTML = '<span class="spinner"></span>正在翻译...';
+  try {
+    const d = await API.post('/api/translate', { text, target: 'en' });
+    box.textContent = d.result;
+  } catch(e) { box.textContent = e.message; }
+}
+
+function speakMyReply() {
+  const text = document.getElementById('call-en-result').textContent.trim();
+  if (!text) { showToast('请先翻译出英文再朗读'); return; }
+  if (!('speechSynthesis' in window)) { showToast('浏览器不支持语音朗读'); return; }
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US';
+  u.rate = 0.92;
+  window.speechSynthesis.speak(u);
+  showToast('正在朗读...');
+}
+
+async function doChat() {
+  const text = document.getElementById('ch-text').value.trim();
+  if (!text) return;
+  const btn = document.querySelector('#chat .btn-primary');
+  const err = document.getElementById('ch-error');
+  const log = document.getElementById('ch-log');
+  btn.disabled = true; err.textContent = '';
+
+  log.insertAdjacentHTML('beforeend',
+    '<div class="chat-row client"><div class="bubble client">' + esc(text) + '</div></div>' +
+    '<div class="chat-row"><div class="bubble ai" id="ch-loading"><span class="spinner"></span>正在生成专业回复...</div></div>'
+  );
+  log.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+  try {
+    const d = await API.post('/api/reply', { text });
+    const loading = document.getElementById('ch-loading');
+    loading.innerHTML =
+      '<span class="intent-badge">' + esc(d.intent || '客户咨询') + '</span>' +
+      (d.meaning ? '<div class="ai-block"><div class="ai-label"><span class="dot"></span>客户意思</div>' + esc(d.meaning) + '</div>' : '') +
+      (d.reply ? '<div class="ai-block reply-en"><div class="ai-label"><span class="dot"></span>推荐回复</div>' + esc(d.reply) +
+        '<button class="copy-btn" onclick="copyVal(this, \'' + encodeURIComponent(d.reply) + '\')">复制</button></div>' : '') +
+      (d.alt_reply ? '<div class="ai-block reply-en"><div class="ai-label"><span class="dot"></span>备选回复</div>' + esc(d.alt_reply) +
+        '<button class="copy-btn" onclick="copyVal(this, \'' + encodeURIComponent(d.alt_reply) + '\')">复制</button></div>' : '');
+  } catch(e) {
+    document.getElementById('ch-loading').innerHTML = '<span style="color:#dc2626;">' + esc(e.message) + '</span>';
+  }
+  btn.disabled = false;
+  document.getElementById('ch-text').value = '';
+  log.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function copyVal(btnEl, encoded) {
+  const text = decodeURIComponent(encoded);
+  navigator.clipboard.writeText(text).then(() => {
+    btnEl.classList.add('copied'); btnEl.textContent = '已复制';
+    showToast('复制成功');
+    setTimeout(() => { btnEl.classList.remove('copied'); btnEl.textContent = '复制'; }, 1500);
+  });
+}
+
+async function doTranslate() {
+  const text = document.getElementById('tr-text').value.trim();
+  if (!text) return;
+  const target = document.getElementById('tr-target').value;
+  const btn = document.querySelector('#translate .btn-primary');
+  const err = document.getElementById('tr-error');
+  const result = document.getElementById('tr-result');
+  const copy = document.getElementById('tr-copy');
+  btn.disabled = true; err.textContent = '';
+  result.innerHTML = '<span class="spinner"></span>正在翻译...';
+  copy.style.display = 'none';
+  try {
+    const data = await API.post('/api/translate', { text, target });
+    result.textContent = data.result;
+    copy.style.display = '';
+  } catch(e) {
+    result.innerHTML = '<span style="color:#94a3b8;">翻译结果将在这里显示</span>';
+    err.textContent = e.message;
+  }
+  btn.disabled = false;
+}
+
+async function doPolish() {
+  const text = document.getElementById('po-text').value.trim();
+  if (!text) return;
+  const btn = document.querySelector('#polish .btn-primary');
+  const err = document.getElementById('po-error');
+  const result = document.getElementById('po-result');
+  const copy = document.getElementById('po-copy');
+  btn.disabled = true; err.textContent = '';
+  result.innerHTML = '<span class="spinner"></span>正在润色...';
+  copy.style.display = 'none';
+  try {
+    const data = await API.post('/api/polish', { text });
+    result.textContent = data.result;
+    copy.style.display = '';
+  } catch(e) {
+    result.innerHTML = '<span style="color:#94a3b8;">润色后结果将在这里显示</span>';
+    err.textContent = e.message;
+  }
+  btn.disabled = false;
+}
+
+async function loadPhrases() {
+  try {
+    const r = await fetch('/api/phrases');
+    allPhrases = await r.json();
+    renderPhrases(allPhrases);
+  } catch(e) { document.getElementById('ph-list').textContent = '加载失败: '+e.message; }
+}
+
+function renderPhrases(cats) {
+  let html = '';
+  cats.forEach(cat => {
+    html += '<div class="phrase-cat"><h3>' + esc(cat.category) + '</h3>';
+    cat.items.forEach(item => {
+      html += '<div class="phrase-item" data-id="' + item.id + '" onclick="copyPhrase(\'' + item.id + '\', this)">' +
+        '<span class="cn">' + esc(item.cn) + '</span>' +
+        '<span class="en">' + esc(item.en) + '</span></div>';
+    });
+    html += '</div>';
+  });
+  document.getElementById('ph-list').innerHTML = html || '<p style="color:#94a3b8;text-align:center;padding:20px;">没有匹配的短语</p>';
+}
+
+function filterPhrases() {
+  const q = document.getElementById('ph-search').value.toLowerCase();
+  if (!q) { renderPhrases(allPhrases); return; }
+  const filtered = allPhrases.map(cat => ({
+    category: cat.category,
+    items: cat.items.filter(item => item.cn.includes(q) || item.en.toLowerCase().includes(q))
+  })).filter(cat => cat.items.length > 0);
+  renderPhrases(filtered);
+}
+
+function copyPhrase(id, el) {
+  for (const cat of allPhrases) {
+    for (const item of cat.items) {
+      if (item.id === id) {
+        navigator.clipboard.writeText(item.en).then(() => {
+          el.classList.add('copied');
+          showToast('已复制: ' + item.cn);
+          setTimeout(() => el.classList.remove('copied'), 1500);
+        });
+        return;
+      }
+    }
+  }
+}
+
+function copyText(fieldId, btnEl) {
+  const el = document.getElementById(fieldId);
+  const text = el.textContent.trim();
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    btnEl.classList.add('copied'); btnEl.textContent = '已复制';
+    showToast('复制成功');
+    setTimeout(() => { btnEl.classList.remove('copied'); btnEl.textContent = '复制'; }, 1500);
+  });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+let mediaRecorder = null;
+let audioChunks = [];
+let voiceBtnEl = null;
+let voiceTargetId = null;
+let voiceLang = 'zh-CN';
+let voiceAuto = null;
+
+function toggleVoiceCall(btnEl) {
+  if (btnEl.classList.contains('listening')) { stopRecording(); return; }
+  startRecording(btnEl);
+}
+
+async function startRecording(btnEl) {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    let mimeType = '';
+    const candidates = ['audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+    for (const m of candidates) {
+      if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) { mimeType = m; break; }
+    }
+    if (!mimeType) { showToast('当前浏览器不支持录音'); stream.getTracks().forEach(t => t.stop()); return; }
+
+    voiceBtnEl = btnEl;
+    voiceTargetId = btnEl.getAttribute('data-target');
+    voiceLang = btnEl.getAttribute('data-lang') || 'zh-CN';
+    voiceAuto = btnEl.getAttribute('data-auto') || null;
+
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(audioChunks, { type: mimeType });
+      try {
+        const wavBlob = await convertToWav(blob);
+        const base64 = await blobToBase64(wavBlob);
+        await recognizeSpeech(base64);
+      } catch (e) {
+        showToast('录音处理失败: ' + e.message);
+        if (voiceBtnEl) voiceBtnEl.classList.remove('listening');
+      }
+    };
+    mediaRecorder.start();
+    btnEl.classList.add('listening');
+    showToast('正在录音，再次点击停止并识别...');
+  } catch (e) {
+    showToast('无法访问麦克风: ' + e.message);
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+}
+
+function convertToWav(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = async () => {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuffer = await audioCtx.decodeAudioData(fr.result);
+        const wav = audioBufferToWav(audioBuffer, 16000);
+        audioCtx.close();
+        resolve(wav);
+      } catch (e) { reject(e); }
+    };
+    fr.onerror = () => reject(new Error('读取音频失败'));
+    fr.readAsArrayBuffer(blob);
+  });
+}
+
+function audioBufferToWav(buffer, targetRate) {
+  const numChannels = 1;
+  const srcData = buffer.getChannelData(0);
+  const length = Math.round(buffer.length * targetRate / buffer.sampleRate);
+  const data = new Float32Array(length);
+  const ratio = buffer.sampleRate / targetRate;
+  for (let i = 0; i < length; i++) {
+    const idx = Math.floor(i * ratio);
+    data[i] = srcData[idx] || 0;
+  }
+  const pcm = new Int16Array(length);
+  for (let i = 0; i < length; i++) {
+    const s = Math.max(-1, Math.min(1, data[i]));
+    pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  const buf = new ArrayBuffer(44 + pcm.length * 2);
+  const view = new DataView(buf);
+  const wstr = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
+  wstr(0, 'RIFF'); view.setUint32(4, 36 + pcm.length * 2, true);
+  wstr(8, 'WAVE'); wstr(12, 'fmt ');
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true); view.setUint32(24, targetRate, true);
+  view.setUint32(28, targetRate * numChannels * 2, true);
+  view.setUint16(32, numChannels * 2, true); view.setUint16(34, 16, true);
+  wstr(36, 'data'); view.setUint32(40, pcm.length * 2, true);
+  for (let i = 0; i < pcm.length; i++) view.setInt16(44 + i * 2, pcm[i], true);
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onloadend = () => resolve(fr.result.split(',')[1]);
+    fr.onerror = () => reject(new Error('编码音频失败'));
+    fr.readAsDataURL(blob);
+  });
+}
+
+async function recognizeSpeech(base64) {
+  const target = document.getElementById(voiceTargetId);
+  try {
+    const d = await API.post('/api/speech-to-text', { audio: base64, lang: voiceLang });
+    target.value = d.text;
+    showToast('识别完成');
+    if (voiceAuto === 'enToZh') enToZh();
+    else if (voiceAuto === 'zhToEn') zhToEn();
+  } catch (e) {
+    showToast('识别失败: ' + e.message);
+  }
+  if (voiceBtnEl) voiceBtnEl.classList.remove('listening');
+}
+
+document.getElementById('ch-text').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') doChat();
+});
+document.getElementById('tr-text').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') doTranslate();
+});
+document.getElementById('po-text').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') doPolish();
+});
+document.getElementById('call-en').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') enToZh();
+});
+document.getElementById('call-my').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') zhToEn();
+});
+
+loadPhrases();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

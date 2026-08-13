@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: translation-assistant
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn translation_web:app --bind 0.0.0.0:$PORT --timeout 120
+    envVars:
+      - key: TENCENT_SECRET_ID
+        sync: false
+      - key: TENCENT_SECRET_KEY
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
