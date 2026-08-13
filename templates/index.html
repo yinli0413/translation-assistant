@@ -244,7 +244,7 @@
         <div class="chat-log" id="auto-log" style="margin-top:12px;"></div>
       </div>
 
-      <div class="call-section they">
+      <div class="call-section they" id="manual-they">
         <div class="call-label"><span class="dir they">对方在说</span>英文 → 中文</div>
         <div style="display:flex;gap:10px;align-items:flex-start;">
           <textarea id="call-en" placeholder="对方说的英文（点麦克风识别，或手动输入）"></textarea>
@@ -256,7 +256,7 @@
         <div class="call-result zh" id="call-zh"><span style="color:#94a3b8;">对方的意思会显示在这里</span></div>
       </div>
 
-      <div class="call-section me">
+      <div class="call-section me" id="manual-me">
         <div class="call-label"><span class="dir me">我要回复</span>中文 → 英文</div>
         <div style="display:flex;gap:10px;align-items:flex-start;">
           <textarea id="call-my" placeholder="你要回复的内容（点麦克风说中文，或手动输入）"></textarea>
@@ -703,7 +703,9 @@ async function toggleAutoCall() {
 }
 
 async function startAutoCall() {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+  });
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const source = audioCtx.createMediaStreamSource(stream);
   const analyser = audioCtx.createAnalyser();
@@ -716,12 +718,16 @@ async function startAutoCall() {
   autoCall.analyser = analyser;
   autoCall.speaking = false;
   autoCall.processing = false;
+  autoCall.ttsSpeaking = false;
 
   const btn = document.getElementById('auto-call-btn');
   btn.textContent = '⏹ 停止自动通话';
   btn.style.background = '#dc2626';
   document.getElementById('auto-status').textContent = '状态：正在监听，请说话...';
   document.getElementById('auto-status').style.color = '#16a34a';
+  // 自动通话开启时，隐藏手动区块，避免双麦克风串音
+  document.getElementById('manual-they').style.display = 'none';
+  document.getElementById('manual-me').style.display = 'none';
 
   autoCall.timer = setInterval(checkVoiceActivity, 100);
 }
@@ -737,10 +743,15 @@ function stopAutoCall() {
   btn.style.background = '';
   document.getElementById('auto-status').textContent = '状态：未开启';
   document.getElementById('auto-status').style.color = '#64748b';
+  // 恢复手动区块
+  document.getElementById('manual-they').style.display = '';
+  document.getElementById('manual-me').style.display = '';
 }
 
 function checkVoiceActivity() {
   if (!autoCall.active) return;
+  // 正在朗读英文给对方听时，暂停监听（避免把自己的朗读录进去）
+  if (autoCall.ttsSpeaking) return;
   const data = new Uint8Array(autoCall.analyser.frequencyBinCount);
   autoCall.analyser.getByteTimeDomainData(data);
   let sum = 0;
@@ -828,10 +839,14 @@ async function handleAutoSegment() {
 
 function speakText(text) {
   if (!('speechSynthesis' in window) || !text) return;
+  // 朗读期间标记，让自动监听暂停，避免把朗读内容录进去
+  autoCall.ttsSpeaking = true;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'en-US';
   u.rate = 0.92;
+  u.onend = function() { autoCall.ttsSpeaking = false; };
+  u.onerror = function() { autoCall.ttsSpeaking = false; };
   window.speechSynthesis.speak(u);
 }
 
